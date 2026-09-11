@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự Báo Thời Tiết & Bức Xạ Mặt Trời Việt Nam</title>
+    <!-- Thư viện vẽ biểu đồ Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #1e88e5;
+            --primary-dark: #1565c0;
+            --bg: #f4f7fe;
+            --card-bg: #ffffff;
+            --text: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #e2e8f0;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+        }
+
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Tùy Chọn */
+        .sidebar {
+            width: 300px;
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 24px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .sidebar h2 {
+            font-size: 1.2rem;
+            color: var(--primary-dark);
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-light);
+        }
+
+        select, input[type="date"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        select:focus, input[type="date"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(30, 136, 229, 0.15);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin: 0 0 8px 0;
+            color: var(--text);
+        }
+
+        .header p {
+            margin: 0;
+            color: var(--text-light);
+        }
+
+        /* Metrics Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .metric-icon {
+            font-size: 2.2rem;
+            background: #e3f2fd;
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+        }
+
+        .metric-info .label {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+
+        .metric-info .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .chart-card h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        /* Data Table */
+        .table-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .table-card h3 {
+            padding: 20px 20px 10px 20px;
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 400px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 12px 20px;
+            color: var(--text-light);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        @media (max-width: 900px) {
+            .layout { flex-direction: column; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>⚙️ Tùy Chỉnh Tham Số</h2>
+
+        <div class="form-group">
+            <label for="citySelect">Tỉnh / Thành Phố:</label>
+            <select id="citySelect" onchange="loadWeatherData()">
+                <option value="hanoi">Hà Nội</option>
+                <option value="hochiminh">TP. Hồ Chí Minh</option>
+                <option value="danang">Đà Nẵng</option>
+                <option value="haiphong">Hải Phòng</option>
+                <option value="cantho">Cần Thơ</option>
+                <option value="nhatrang">Nha Trang</option>
+                <option value="dalat">Đà Lạt</option>
+                <option value="hue">Huế</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="modeSelect">Chế Độ Dữ Liệu:</label>
+            <select id="modeSelect" onchange="toggleMode()">
+                <option value="forecast">Hiện Tại & Dự Báo (7 ngày)</option>
+                <option value="archive">Dữ Liệu Quá Khứ</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="dateRangeGroup" style="display: none;">
+            <label for="startDate">Từ Ngày:</label>
+            <input type="date" id="startDate">
+            <label for="endDate" style="margin-top: 8px;">Đến Ngày:</label>
+            <input type="date" id="endDate">
+            <button onclick="loadWeatherData()" style="margin-top: 10px; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">Tải Dữ Liệu Quá Khứ</button>
+        </div>
+
+        <div class="form-group">
+            <label for="granularitySelect">Khung Thời Gian Hiển Thị:</label>
+            <select id="granularitySelect" onchange="loadWeatherData()">
+                <option value="hourly">Theo Giờ (Hourly)</option>
+                <option value="daily">Theo Ngày (Daily)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <h1 id="pageTitle">🌤️ Thời Tiết & Bức Xạ Mặt Trời tại Hà Nội</h1>
+            <p id="pageSubtitle">Dữ liệu thời gian thực và dự báo mở từ Open-Meteo API</p>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="metrics-grid" id="metricsContainer">
+            <div class="metric-card">
+                <div class="metric-icon">🌡️</div>
+                <div class="metric-info">
+                    <div class="label">Nhiệt Độ Hiện Tại</div>
+                    <div class="value" id="currentTemp">-- °C</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">💧</div>
+                <div class="metric-info">
+                    <div class="label">Độ Ẩm Hiện Tại</div>
+                    <div class="value" id="currentHumidity">-- %</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">☀️</div>
+                <div class="metric-info">
+                    <div class="label">Bức Xạ Mặt Trời</div>
+                    <div class="value" id="currentRad">-- W/m²</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Biểu Đồ -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Biểu Đồ Nhiệt Độ & Độ Ẩm</h3>
+                <canvas id="tempHumChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>☀️ Biểu Đồ Bức Xạ Mặt Trời</h3>
+                <canvas id="radiationChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Bảng Dữ Liệu -->
+        <div class="table-card">
+            <h3>📋 Bảng Dữ Liệu Chi Tiết</h3>
+            <div class="table-wrapper">
+                <table id="dataTable">
+                    <thead>
+                        <tr id="tableHeader">
+                            <th>Thời Gian</th>
+                            <th>Nhiệt Độ (°C)</th>
+                            <th>Độ Ẩm (%)</th>
+                            <th>Bức Xạ (W/m²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const CITIES = {
+        hanoi: { name: "Hà Nội", lat: 21.0285, lon: 105.8542 },
+        hochiminh: { name: "TP. Hồ Chí Minh", lat: 10.8231, lon: 106.6297 },
+        danang: { name: "Đà Nẵng", lat: 16.0544, lon: 108.2022 },
+        haiphong: { name: "Hải Phòng", lat: 20.8449, lon: 106.6881 },
+        cantho: { name: "Cần Thơ", lat: 10.0452, lon: 105.7469 },
+        nhatrang: { name: "Nha Trang", lat: 12.2388, lon: 109.1967 },
+        dalat: { name: "Đà Lạt", lat: 11.9404, lon: 108.4583 },
+        hue: { name: "Huế", lat: 16.4637, lon: 107.5909 }
+    };
+
+    let chart1 = null, chart2 = null;
+
+    // Cài đặt ngày quá khứ mặc định (7 ngày trước)
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    document.getElementById('startDate').value = sevenDaysAgo.toISOString().split('T')[0];
+    document.getElementById('endDate').value = new Date(today.setDate(today.getDate() - 1)).toISOString().split('T')[0];
+
+    function toggleMode() {
+        const mode = document.getElementById('modeSelect').value;
+        const dateGroup = document.getElementById('dateRangeGroup');
+        const metricsContainer = document.getElementById('metricsContainer');
+        
+        if (mode === 'archive') {
+            dateGroup.style.display = 'flex';
+            metricsContainer.style.display = 'none';
+        } else {
+            dateGroup.style.display = 'none';
+            metricsContainer.style.display = 'grid';
+            loadWeatherData();
+        }
+    }
+
+    async function loadWeatherData() {
+        const cityKey = document.getElementById('citySelect').value;
+        const mode = document.getElementById('modeSelect').value;
+        const granularity = document.getElementById('granularitySelect').value;
+        const city = CITIES[cityKey];
+
+        document.getElementById('pageTitle').innerText = `🌤️ Thời Tiết & Bức Xạ Mặt Trời tại ${city.name}`;
+
+        let url = "";
+        if (mode === 'forecast') {
+            url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m&hourly=temperature_2m,relative_humidity_2m,shortwave_radiation&daily=temperature_2m_max,temperature_2m_min,shortwave_radiation_sum&timezone=Asia%2FBangkok`;
+        } else {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            url = `https://archive-api.open-meteo.com/v1/archive?latitude=${city.lat}&longitude=${city.lon}&start_date=${start}&end_date=${end}&hourly=temperature_2m,relative_humidity_2m,shortwave_radiation&daily=temperature_2m_max,temperature_2m_min,shortwave_radiation_sum&timezone=Asia%2FBangkok`;
+        }
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (mode === 'forecast' && data.current) {
+                document.getElementById('currentTemp').innerText = `${data.current.temperature_2m} °C`;
+                document.getElementById('currentHumidity').innerText = `${data.current.relative_humidity_2m} %`;
+                if (data.hourly && data.hourly.shortwave_radiation) {
+                    const currentHourIdx = new Date().getHours();
+                    document.getElementById('currentRad').innerText = `${data.hourly.shortwave_radiation[currentHourIdx] || 0} W/m²`;
+                }
+            }
+
+            renderChartsAndTable(data, granularity);
+        } catch (error) {
+            alert("Không thể tải dữ liệu thời tiết!");
+            console.error(error);
+        }
+    }
+
+    function renderChartsAndTable(data, granularity) {
+        let labels = [];
+        let temp1 = [], temp2 = [], humidity = [], radiation = [];
+
+        if (granularity === 'hourly' && data.hourly) {
+            labels = data.hourly.time.map(t => t.replace('T', ' '));
+            temp1 = data.hourly.temperature_2m;
+            humidity = data.hourly.relative_humidity_2m;
+            radiation = data.hourly.shortwave_radiation;
+
+            updateHeaders(['Thời Gian', 'Nhiệt Độ (°C)', 'Độ Ẩm (%)', 'Bức Xạ (W/m²)']);
+            fillTable(labels, [temp1, humidity, radiation]);
+            drawCharts(
+                labels, 
+                [{ label: 'Nhiệt độ (°C)', data: temp1, color: '#ff7043' }, { label: 'Độ ẩm (%)', data: humidity, color: '#42a5f5' }], 
+                [{ label: 'Bức xạ (W/m²)', data: radiation, color: '#ffa726', type: 'line' }]
+            );
+        } else if (granularity === 'daily' && data.daily) {
+            labels = data.daily.time;
+            temp1 = data.daily.temperature_2m_max;
+            temp2 = data.daily.temperature_2m_min;
+            radiation = data.daily.shortwave_radiation_sum;
+
+            updateHeaders(['Ngày', 'Nhiệt Độ Cao Nhất (°C)', 'Nhiệt Độ Thấp Nhất (°C)', 'Tổng Bức Xạ (MJ/m²)']);
+            fillTable(labels, [temp1, temp2, radiation]);
+            drawCharts(
+                labels, 
+                [{ label: 'Nhiệt độ Cao nhất (°C)', data: temp1, color: '#ef5350' }, { label: 'Nhiệt độ Thấp nhất (°C)', data: temp2, color: '#ab47bc' }], 
+                [{ label: 'Tổng bức xạ (MJ/m²)', data: radiation, color: '#ffca28', type: 'bar' }]
+            );
+        }
+    }
+
+    function updateHeaders(headers) {
+        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+    }
+
+    function fillTable(labels, datasets) {
+        let html = '';
+        for (let i = 0; i < labels.length; i++) {
+            html += `<tr><td>${labels[i]}</td>`;
+            datasets.forEach(ds => {
+                html += `<td>${ds[i] !== null ? ds[i] : '--'}</td>`;
+            });
+            html += `</tr>`;
+        }
+        document.getElementById('tableBody').innerHTML = html;
+    }
+
+    function drawCharts(labels, datasetGroup1, datasetGroup2) {
+        if (chart1) chart1.destroy();
+        if (chart2) chart2.destroy();
+
+        const ctx1 = document.getElementById('tempHumChart').getContext('2d');
+        chart1 = new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasetGroup1.map(d => ({
+                    label: d.label,
+                    data: d.data,
+                    borderColor: d.color,
+                    backgroundColor: d.color + '22',
+                    tension: 0.3,
+                    fill: false
+                }))
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+
+        const ctx2 = document.getElementById('radiationChart').getContext('2d');
+        chart2 = new Chart(ctx2, {
+            type: datasetGroup2[0].type || 'line',
+            data: {
+                labels: labels,
+                datasets: datasetGroup2.map(d => ({
+                    label: d.label,
+                    data: d.data,
+                    borderColor: d.color,
+                    backgroundColor: d.color + 'aa',
+                    tension: 0.3
+                }))
+            },
+            options: { responsive: true, maintainAspectRatio: true }
+        });
+    }
+
+    // Tải dữ liệu mặc định khi vừa mở trang
+    loadWeatherData();
+</script>
+
+</body>
+</html>
