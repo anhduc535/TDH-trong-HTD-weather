@@ -71,6 +71,12 @@ if mode == "Dữ liệu Quá khứ":
 
 data = fetch_weather_data(lat, lon, mode, str(start_date), str(end_date))
 
+# Hàm chuyển DataFrame sang CSV (có cache để tránh convert lại nhiều lần)
+@st.cache_data
+def convert_df_to_csv(df):
+    # utf-8-sig để Excel hiển thị đúng tiếng Việt có dấu
+    return df.to_csv(index=False).encode("utf-8-sig")
+
 # --- Hiển thị kết quả ---
 if data:
     # Hiển thị dữ liệu Hiện tại (nếu ở chế độ Dự báo)
@@ -100,6 +106,15 @@ if data:
         # Bảng dữ liệu
         st.dataframe(df, use_container_width=True)
 
+        # Nút tải CSV
+        csv_data = convert_df_to_csv(df)
+        st.download_button(
+            label="⬇️ Tải dữ liệu Theo giờ (CSV)",
+            data=csv_data,
+            file_name=f"thoitiet_{selected_city}_hourly_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+        )
+
     elif granularity == "Theo ngày (Daily)" and "daily" in data:
         df = pd.DataFrame({
             "Ngày": data["daily"]["time"],
@@ -114,6 +129,15 @@ if data:
         
         # Bảng dữ liệu
         st.dataframe(df, use_container_width=True)
+
+        # Nút tải CSV
+        csv_data = convert_df_to_csv(df)
+        st.download_button(
+            label="⬇️ Tải dữ liệu Theo ngày (CSV)",
+            data=csv_data,
+            file_name=f"thoitiet_{selected_city}_daily_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+        )
 
 else:
     st.error("Không thể lấy dữ liệu từ API. Vui lòng kiểm tra lại kết nối hoặc tham số chọn!")
